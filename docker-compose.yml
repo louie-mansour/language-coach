@@ -1,0 +1,48 @@
+# 1) Start Docker Desktop (or the Docker daemon) so /var/run/docker.sock exists.
+# 2) Put GEMINI_API_KEY in a .env file next to this file (Compose loads it automatically).
+# Migrations run when the api container starts (docker-entrypoint.sh).
+# After changing the image or entrypoint, recreate the container:
+#   docker compose up --build --force-recreate
+# If the DB volume predates migrations, reset it once:
+#   docker compose down -v && docker compose up --build
+#
+# Default DB user/password/db are fixed below (dev only). To change them, edit this file or use a compose override.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: languagecoach
+      POSTGRES_PASSWORD: languagecoach
+      POSTGRES_DB: languagecoach
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Literal user/db — Compose treats $POSTGRES_USER in strings as a host .env variable (often empty).
+      test: ['CMD-SHELL', 'pg_isready -U languagecoach -d languagecoach']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - '5432:5432'
+
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://languagecoach:languagecoach@postgres:5432/languagecoach
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Cheapest stable Flash-Lite on the Gemini API pricing page
+      GEMINI_MODEL: gemini-2.5-flash-lite
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

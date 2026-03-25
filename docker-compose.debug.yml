@@ -1,0 +1,12 @@
+# Merge with the main file:
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+#
+# Then in Cursor/VS Code: Run and Debug → "Attach to Node (Docker api)".
+# Breakpoints: set in .ts under src/; tsconfig uses inlineSourceMap (no dist/*.map on host).
+
+services:
+  api:
+    ports:
+      - '9229:9229'
+    environment:
+      ENABLE_NODE_DEBUG: '1'

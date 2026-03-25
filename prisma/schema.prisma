@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id               String    @id
+  phoneNumber      String    @unique
+  name             String?
+  motherTongue     String?
+  languageToLearn  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  messages         Message[]
+}
+
+model Message {
+  id        String   @id
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  channel   String
+  from      String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+}

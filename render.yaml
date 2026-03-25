@@ -1,0 +1,30 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+#
+# 1) Push this repo to GitHub/GitLab and connect it in Render.
+# 2) New → Blueprint → select repo (render.yaml is detected).
+# 3) When prompted, set GEMINI_API_KEY (from Google AI Studio).
+# 4) DATABASE_URL is wired from the Postgres below. Migrations run on each deploy via docker-entrypoint.sh.
+#
+# Free web services spin down after idle; use a paid instance type for production.
+
+services:
+  - type: web
+    name: language-coach-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: DATABASE_URL
+        fromDatabase:
+          name: language-coach-db
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+
+databases:
+  - name: language-coach-db
+    databaseName: languagecoach
