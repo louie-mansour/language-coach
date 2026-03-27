@@ -10,6 +10,7 @@ globalThis.fetch = fetch as unknown as typeof globalThis.fetch;
 
 // Fail fast if HTTP leaves the process without a matching nock (avoids accidental real Gemini calls).
 nock.disableNetConnect();
+nock.enableNetConnect((host) => host.includes('127.0.0.1') || host.includes('localhost'));
 
 afterEach(() => {
   nock.cleanAll();

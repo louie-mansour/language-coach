@@ -6,9 +6,23 @@
  *   PORT=3001 npm run curl-message -- hello
  */
 
+import fs from 'node:fs';
+
 const port = process.env.PORT || '3000';
 const phone = process.env.PHONE || '+15551234567';
 const message = process.argv.slice(2).join(' ').trim();
+const expectedApiKey =
+  process.env.API_KEY?.trim() ||
+  (() => {
+    try {
+      const s = fs.readFileSync('.env', 'utf8');
+      const m = s.match(/^API_KEY=(.*)$/m);
+      const v = m?.[1]?.trim() ?? '';
+      return v.replace(/^["']|["']$/g, '');
+    } catch {
+      return '';
+    }
+  })();
 
 if (!message) {
   console.error('Usage: npm run curl-message -- <message text>');
@@ -21,7 +35,10 @@ const body = JSON.stringify({ phoneNumber: phone, message });
 
 const res = await fetch(url, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    ...(expectedApiKey ? { 'x-api-key': expectedApiKey } : {}),
+  },
   body,
 });
 

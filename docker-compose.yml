@@ -40,6 +40,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Cheapest stable Flash-Lite on the Gemini API pricing page
       GEMINI_MODEL: gemini-2.5-flash-lite
+      API_KEY: ${API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
