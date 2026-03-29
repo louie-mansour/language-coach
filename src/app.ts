@@ -9,8 +9,9 @@ export function createApp() {
 
   app.use(cors());
   app.use(express.json());
-  app.use(requireApiKey);
+  // /health must stay public so load balancers (e.g. Railway) can probe without API keys.
   app.use(healthRouter);
+  app.use(requireApiKey);
   app.use(incomingMessageRouter);
 
   return app;

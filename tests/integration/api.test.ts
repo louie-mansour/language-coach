@@ -19,16 +19,15 @@ afterAll(async () => {
 });
 
 describe('HTTP → handler → Prisma (Gemini mocked with nock)', () => {
-  it('GET /health returns 401 without API key', async () => {
-    await request(app).get('/health').expect(401);
+  it('GET /health is public (no API key; platform health probes)', async () => {
+    await request(app).get('/health').expect(200).expect({ ok: true });
   });
 
-  it('GET /health returns ok with x-api-key', async () => {
+  it('POST /message returns 401 without API key', async () => {
     await request(app)
-      .get('/health')
-      .set('x-api-key', API_KEY)
-      .expect(200)
-      .expect({ ok: true });
+      .post('/message')
+      .send({ phoneNumber: '+15550000000', message: 'hi' })
+      .expect(401);
   });
 
   it('POST /message stores student + messages and returns mocked coach reply', async () => {
