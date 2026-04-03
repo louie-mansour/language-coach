@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { createApp } from './app';
+import { startTelegramLongPollingIfEnabled } from './controller/telegramLongPollController';
 
 dotenv.config();
 
@@ -11,5 +12,6 @@ const app = createApp();
 app.listen(port, host, () => {
   // eslint-disable-next-line no-console
   console.log(`Server listening on http://${host}:${port}`);
+  startTelegramLongPollingIfEnabled();
 });
 

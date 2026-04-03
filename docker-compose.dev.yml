@@ -1,0 +1,18 @@
+# Hot reload: mount source from the host, keep container node_modules via anonymous volume.
+# Use with docker-compose.yml: make up / make up-debug (Makefile includes this file).
+#
+# First run still needs --build so the image provides node_modules for the anonymous volume.
+# If file watching misses edits (some Docker Desktop setups), CHOKIDAR_USEPOLLING is enabled.
+
+services:
+  api:
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - .:/app
+      - api_node_modules:/app/node_modules
+    entrypoint: ["./docker-entrypoint-dev.sh"]
+
+volumes:
+  api_node_modules:

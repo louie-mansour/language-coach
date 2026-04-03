@@ -1,8 +1,11 @@
 # Override if you use the standalone CLI: make DOCKER_COMPOSE="docker-compose" up-debug
 DOCKER_COMPOSE ?= docker compose
 
-COMPOSE := $(DOCKER_COMPOSE) -f docker-compose.yml
-COMPOSE_DEBUG := $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.debug.yml
+# Hot reload: src/ mounted, tsx watch (see docker-compose.dev.yml).
+COMPOSE := $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
+COMPOSE_DEBUG := $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.debug.yml
+# Production-style image (no bind mount): docker compose -f docker-compose.yml up --build
+COMPOSE_PROD := $(DOCKER_COMPOSE) -f docker-compose.yml
 
 # Extra args for compose, e.g. make up-debug ARGS=-d
 ARGS ?=
@@ -21,12 +24,13 @@ API_KEY ?=
 TEST_DB_NAME ?= languagecoach_test
 TEST_DATABASE_URL ?= postgresql://languagecoach:languagecoach@127.0.0.1:5432/$(TEST_DB_NAME)
 
-.PHONY: help up up-debug down down-v logs psql test curl-health curl-message
+.PHONY: help up up-debug up-prod down down-v logs psql test curl-health curl-message
 
 help:
 	@echo "Docker Compose (language-coach)"
-	@echo "  make up          - build and run api + postgres"
+	@echo "  make up          - api + postgres, hot reload (edit src/ on host; tsx watch in container)"
 	@echo "  make up-debug    - same + Node inspector on localhost:9229 (attach from Cursor/VS Code)"
+	@echo "  make up-prod     - no hot reload: run compiled dist/ from image (like old make up)"
 	@echo "  make down        - stop stack"
 	@echo "  make down-v      - stop and remove volumes (wipes Postgres data)"
 	@echo "  make logs        - follow api + postgres logs"
@@ -37,12 +41,17 @@ help:
 	@echo "    WRONG: make curl-message 'your text' — Make treats that as extra targets; default MSG (Hello) is sent."
 	@echo "    optional: PHONE=... PORT=...  or: npm run curl-message -- your words here"
 	@echo "Optional: ARGS=-d for detached, e.g. make up-debug ARGS=-d"
+	@echo "  After changing package.json deps, recreate node_modules volume: make down-v && make up"
+	@echo "  or: docker compose run --rm api pnpm install"
 
 up:
 	$(COMPOSE) up --build $(ARGS)
 
 up-debug:
 	$(COMPOSE_DEBUG) up --build $(ARGS)
+
+up-prod:
+	$(COMPOSE_PROD) up --build $(ARGS)
 
 down:
 	$(COMPOSE) down $(ARGS)
@@ -78,4 +87,4 @@ curl-message:
 		curl -sS -X POST "http://$(DOMAIN):$(HOST_API_PORT)/message" \
 		-H 'Content-Type: application/json' \
 		-H "x-api-key: $(API_KEY)" \
-		-d "$$(node -p 'JSON.stringify({phoneNumber:process.env["PHONE"]||"+15551234567",message:process.env["MSG"]||"Hello"})')"
+		-d "$$(node -p 'JSON.stringify({channel:"sms",phoneNumber:process.env["PHONE"]||"+15551234567",message:process.env["MSG"]||"Hello"})')"

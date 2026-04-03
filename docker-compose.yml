@@ -1,6 +1,10 @@
 # 1) Start Docker Desktop (or the Docker daemon) so /var/run/docker.sock exists.
 # 2) Put GEMINI_API_KEY in a .env file next to this file (Compose loads it automatically).
 # Migrations run when the api container starts (docker-entrypoint.sh).
+#
+# Hot reload (recommended for local dev): use Makefile `make up` / `make up-debug`, which adds
+# docker-compose.dev.yml (bind-mount src/, tsx watch). Production-style run: `make up-prod`.
+#
 # After changing the image or entrypoint, recreate the container:
 #   docker compose up --build --force-recreate
 # If the DB volume predates migrations, reset it once:
@@ -41,6 +45,8 @@ services:
       # Cheapest stable Flash-Lite on the Gemini API pricing page
       GEMINI_MODEL: gemini-2.5-flash-lite
       API_KEY: ${API_KEY:-}
+      TELEGRAM_LONG_POLLING: ${TELEGRAM_LONG_POLLING:-true}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-${TELEGRAM_LANGUAGE_COACH_BOT_API_KEY:-}}
     depends_on:
       postgres:
         condition: service_healthy

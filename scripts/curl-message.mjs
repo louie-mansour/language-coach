@@ -31,7 +31,7 @@ if (!message) {
 }
 
 const url = `http://localhost:${port}/message`;
-const body = JSON.stringify({ phoneNumber: phone, message });
+const body = JSON.stringify({ channel: 'sms', phoneNumber: phone, message });
 
 const res = await fetch(url, {
   method: 'POST',

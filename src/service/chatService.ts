@@ -4,6 +4,11 @@ import type { Prisma } from '../generated/prisma';
 import type { Message } from '../model/message';
 import { prisma } from '../prisma';
 
+export type ChatChannel = 'sms' | 'telegram';
+
+/** Channels included in end-of-day digest transcript. */
+export const DIGEST_CHAT_CHANNELS: ChatChannel[] = ['sms', 'telegram'];
+
 /**
  * Inserts one chat row. Pass `tx` when calling inside `prisma.$transaction`.
  */
@@ -27,13 +32,14 @@ export async function persistChatTurn(
   studentId: string,
   userMessage: string,
   replyToUser: string,
+  channel: ChatChannel,
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await persistMessage(
       {
         id: randomUUID(),
         studentId,
-        channel: 'sms',
+        channel,
         from: 'student',
         message: userMessage,
       },
@@ -43,7 +49,7 @@ export async function persistChatTurn(
       {
         id: randomUUID(),
         studentId,
-        channel: 'sms',
+        channel,
         from: 'model',
         message: replyToUser,
       },
@@ -53,17 +59,36 @@ export async function persistChatTurn(
 }
 
 /**
- * Latest chat rows for the SMS channel, oldest-first (suitable for prompt context).
+ * Latest chat rows for the given channel, oldest-first (suitable for prompt context).
  */
 export async function findRecentChatRowsForStudent(
   studentId: string,
   limit: number = 12,
+  channel: ChatChannel = 'sms',
 ): Promise<Message[]> {
   const recent = await prisma.message.findMany({
-    where: { studentId, channel: 'sms' },
+    where: { studentId, channel },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
   recent.reverse();
   return recent;
+}
+
+/**
+ * All digest-eligible chat rows for a student whose createdAt falls in [start, end) (typically one UTC calendar day).
+ */
+export async function findMessagesForStudentInTimeRange(
+  studentId: string,
+  start: Date,
+  end: Date,
+): Promise<Message[]> {
+  return prisma.message.findMany({
+    where: {
+      studentId,
+      channel: { in: DIGEST_CHAT_CHANNELS },
+      createdAt: { gte: start, lt: end },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
 }

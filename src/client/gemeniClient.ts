@@ -43,14 +43,48 @@ export const conversationTurnPayloadSchema = z
     intent: z.string(),
     intentConfidence: z.coerce.number(),
     replyToUser: z.string(),
-    motherTongue: z.string().nullable(),
-    motherTongueConfidence: z.coerce.number(),
-    languageToLearn: z.string().nullable(),
-    languageToLearnConfidence: z.coerce.number(),
   })
   .passthrough();
 
 export type ConversationTurnPayload = z.infer<typeof conversationTurnPayloadSchema>;
+
+/** End-of-day email digest (derived from same-day transcript; not shown in SMS). */
+export const dailyDigestPayloadSchema = z
+  .object({
+    strengths: z.array(z.string()),
+    improvements: z.array(z.string()),
+    shouldSend: z.boolean(),
+  })
+  .transform((d) => ({
+    strengths: d.strengths.slice(0, 3),
+    improvements: d.improvements.slice(0, 3),
+    shouldSend: d.shouldSend,
+  }));
+
+export type DailyDigestPayload = z.infer<typeof dailyDigestPayloadSchema>;
+
+export const dailyDigestResponseJsonSchema = {
+  type: 'object',
+  properties: {
+    strengths: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Up to 3 specific, positive observations about what felt natural or strong in the target language.',
+    },
+    improvements: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Up to 3 gentle, actionable suggestions—supportive tone, not harsh.',
+    },
+    shouldSend: {
+      type: 'boolean',
+      description:
+        'False if there was no meaningful practice (only onboarding, empty chat, or no target-language use).',
+    },
+  },
+  required: ['strengths', 'improvements', 'shouldSend'],
+} as const;
 
 /**
  * Forces Gemini to emit all keys (models often omit optional fields with JSON mime type only).
@@ -70,36 +104,10 @@ export const conversationTurnResponseJsonSchema = {
     replyToUser: {
       type: 'string',
       description:
-        'Short SMS, natural and varied—like texting a friend. If the system prompt says both languages are stored (COMPLETE), write mainly in the target language and do not repeat "ready to start the lesson?" style prompts; give concrete new content each turn. Otherwise match the user language during onboarding until both are known.',
-    },
-    motherTongue: {
-      type: ['string', 'null'],
-      description:
-        'Native/first language only (English name). Never put the language they want to learn here. If the user only names a study language (e.g. after you asked what they want to learn), that belongs in languageToLearn, not here.',
-    },
-    motherTongueConfidence: {
-      type: 'number',
-      description: '0 if motherTongue is null; otherwise 0–1 confidence.',
-    },
-    languageToLearn: {
-      type: ['string', 'null'],
-      description:
-        'Language they want to learn/study (English name, e.g. French). If your previous turn asked what language to learn and they answer with just a language (e.g. "French, please"), put it here—not in motherTongue.',
-    },
-    languageToLearnConfidence: {
-      type: 'number',
-      description: '0 if languageToLearn is null; otherwise 0–1 confidence.',
+        'Short message, natural and varied. Follow the system prompt: during onboarding ask what language they want to learn (only French is supported); after they commit, coach mainly in French with brief English when helpful.',
     },
   },
-  required: [
-    'intent',
-    'intentConfidence',
-    'replyToUser',
-    'motherTongue',
-    'motherTongueConfidence',
-    'languageToLearn',
-    'languageToLearnConfidence',
-  ],
+  required: ['intent', 'intentConfidence', 'replyToUser'],
 } as const;
 
 function extractModelJsonText(text: string): string {
@@ -183,20 +191,31 @@ async function fetchGeminiGenerate(body: GeminiGenerateBody): Promise<string> {
   return text;
 }
 
+async function geminiJsonCompletion(
+  userPrompt: string,
+  responseJsonSchema: object,
+  opts: { maxOutputTokens: number; temperature: number },
+): Promise<string> {
+  return fetchGeminiGenerate({
+    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      temperature: opts.temperature,
+      responseMimeType: 'application/json',
+      responseJsonSchema,
+      maxOutputTokens: opts.maxOutputTokens,
+    },
+  });
+}
+
 /**
- * One call: intent + SMS reply + optional sign-up fields (JSON mode).
+ * One call: intent + reply (JSON mode). Languages are fixed in app code (English → French).
  */
 export async function completeConversationTurnPrompt(
   prompt: string,
 ): Promise<ConversationTurnPayload> {
-  const rawText = await fetchGeminiGenerate({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.45,
-      responseMimeType: 'application/json',
-      responseJsonSchema: conversationTurnResponseJsonSchema,
-      maxOutputTokens: 1024,
-    },
+  const rawText = await geminiJsonCompletion(prompt, conversationTurnResponseJsonSchema, {
+    maxOutputTokens: 1024,
+    temperature: 0.45,
   });
   const jsonText = extractModelJsonText(rawText);
 
@@ -211,6 +230,33 @@ export async function completeConversationTurnPrompt(
   if (!result.success) {
     throw new Error(
       `Invalid conversation JSON: ${JSON.stringify(result.error.format())}`,
+    );
+  }
+
+  return result.data;
+}
+
+/**
+ * Summarizes strengths and improvements from a single day's transcript (UTC day).
+ */
+export async function completeDailyDigestPrompt(prompt: string): Promise<DailyDigestPayload> {
+  const rawText = await geminiJsonCompletion(prompt, dailyDigestResponseJsonSchema, {
+    maxOutputTokens: 768,
+    temperature: 0.35,
+  });
+  const jsonText = extractModelJsonText(rawText);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    throw new Error(`Gemini returned non-JSON (digest): ${jsonText.slice(0, 200)}`);
+  }
+
+  const result = dailyDigestPayloadSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error(
+      `Invalid digest JSON: ${JSON.stringify(result.error.format())}`,
     );
   }
 

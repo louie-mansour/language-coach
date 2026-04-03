@@ -12,10 +12,17 @@ export function messageFactory(message: Omit<Message, 'id' | 'createdAt'>): Mess
 }
 
 export type SmsMessage = {
+  channel: 'sms';
   message: string;
   phoneNumber: string;
 };
 
-export type IncomingMessage = SmsMessage;
+export type TelegramMessage = {
+  channel: 'telegram';
+  message: string;
+  telegramChatId: string;
+};
 
-export type OutgoingMessage = SmsMessage;
+export type IncomingMessage = SmsMessage | TelegramMessage;
+
+export type OutgoingMessage = IncomingMessage;

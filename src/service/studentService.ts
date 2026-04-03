@@ -8,19 +8,32 @@ export async function createOrGetStudentByPhoneNumber(phoneNumber: string): Prom
     create: {
       id: randomUUID(),
       phoneNumber,
+      telegramChatId: null,
     },
     update: {},
   });
 }
 
+export async function createOrGetStudentByTelegramChatId(telegramChatId: string): Promise<Student> {
+  return prisma.student.upsert({
+    where: { telegramChatId },
+    create: {
+      id: randomUUID(),
+      phoneNumber: null,
+      telegramChatId,
+    },
+    update: {},
+  });
+}
 
 export async function persistStudent(student: Student): Promise<Student> {
   return prisma.student.create({
     data: {
       id: student.id,
       phoneNumber: student.phoneNumber,
+      telegramChatId: student.telegramChatId,
       name: student.name,
-      motherTongue: student.motherTongue,
+      nativeLanguage: student.nativeLanguage,
       languageToLearn: student.languageToLearn,
     },
   });
@@ -31,8 +44,8 @@ export async function mergeStudentProfileFromExtractions(
   studentId: string,
   details: SignUpDetails,
 ): Promise<Student> {
-  const data: { motherTongue?: string; languageToLearn?: string; name?: string } = {};
-  if (details.motherTongue?.trim()) data.motherTongue = details.motherTongue.trim();
+  const data: { nativeLanguage?: string; languageToLearn?: string; name?: string } = {};
+  if (details.nativeLanguage?.trim()) data.nativeLanguage = details.nativeLanguage.trim();
   if (details.languageToLearn?.trim()) data.languageToLearn = details.languageToLearn.trim();
   if (details.name?.trim()) data.name = details.name.trim();
   if (Object.keys(data).length === 0) {

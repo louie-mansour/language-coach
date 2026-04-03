@@ -1,6 +1,6 @@
 import { Request, Router } from 'express';
 
-import { handleIncomingMessage } from '../handler/incomingMessageHandler';
+import { handleIncomingMessage } from '../useCase/incomingMessageUseCase';
 import type { IncomingMessage, OutgoingMessage } from '../model/message';
 
 const router = Router();
@@ -9,8 +9,8 @@ router.post(
   '/message',
   async (req: Request<{}, unknown, IncomingMessage>, res, next) => {
     try {
-      const { message, phoneNumber } = req.body;
-      const incomingMessage: IncomingMessage = { message, phoneNumber };
+      const { message, phoneNumber } = req.body as { message: string; phoneNumber: string };
+      const incomingMessage: IncomingMessage = { channel: 'sms', message, phoneNumber };
 
       const outgoingMessage = await handleIncomingMessage(incomingMessage);
 

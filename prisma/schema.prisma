@@ -1,6 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
+  /// Host (native) + Linux engines for Docker (see PrismaClientInitializationError if missing).
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -10,10 +12,15 @@ datasource db {
 
 model Student {
   id               String    @id
-  phoneNumber      String    @unique
+  /// SMS channel identity; null for Telegram-only accounts.
+  phoneNumber      String?   @unique
+  /// Private-chat id from Telegram Bot API; null for SMS-only accounts.
+  telegramChatId   String?   @unique
   name             String?
-  motherTongue     String?
+  nativeLanguage   String?
   languageToLearn  String?
+  /// If set, end-of-day digest can be emailed (set manually or via a future API).
+  email            String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   messages         Message[]
