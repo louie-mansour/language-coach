@@ -6,11 +6,7 @@ import type { TelegramUpdate } from '../controller/telegramLongPollController';
 const GETUPDATES_SOCKET_BUFFER_SEC = 20;
 
 function getTelegramBotToken(): string {
-  return (
-    process.env.TELEGRAM_BOT_TOKEN?.trim() ||
-    process.env.TELEGRAM_LANGUAGE_COACH_BOT_API_KEY?.trim() ||
-    ''
-  );
+  return process.env.TELEGRAM_BOT_TOKEN?.trim() ?? '';
 }
 
 /**

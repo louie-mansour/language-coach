@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- long-poll worker logs to stdout/stderr */
 import {
   deleteTelegramWebhook,
   getTelegramUpdates,
@@ -5,17 +6,6 @@ import {
   sendTelegramMessage,
 } from '../client/telegramClient';
 import { handleIncomingMessage } from '../useCase/incomingMessageUseCase';
-
-const ERROR_BACKOFF_MS = 5000;
-
-/** Telegram long-poll duration (0–50). Shorter values are more reliable through some NATs / Docker Desktop. */
-function pollTimeoutSeconds(): number {
-  const raw = process.env.TELEGRAM_LONG_POLL_TIMEOUT?.trim();
-  if (!raw) return 25;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 25;
-  return Math.min(50, Math.max(0, n));
-}
 
 export type TelegramMessagePayload = {
   message_id: number;
@@ -28,62 +18,24 @@ export type TelegramUpdate = {
   message?: TelegramMessagePayload;
 };
 
-
-function longPollingEnabled(): boolean {
-  return process.env.TELEGRAM_LONG_POLLING?.trim().toLowerCase() === 'true';
-}
-
 /**
- * Telegram Bot API long polling (getUpdates with timeout). Mutually exclusive with webhooks:
- * on start we call deleteWebhook so Telegram delivers updates here.
- * Enable with TELEGRAM_LONG_POLLING=true and TELEGRAM_BOT_TOKEN set.
+ * Long polling (getUpdates). Mutually exclusive with webhooks: we deleteWebhook on start.
+ * Set TELEGRAM_LONG_POLLING=true and TELEGRAM_BOT_TOKEN.
  */
 export function startTelegramLongPollingIfEnabled(): void {
   if (!longPollingEnabled()) {
-    return;
+    logWarn(
+      'TELEGRAM_LONG_POLLING is not "true"; long polling disabled. Set TELEGRAM_LONG_POLLING=true if you want to use long polling.',
+    );
   }
   if (!isTelegramConfigured()) {
-    // eslint-disable-next-line no-console
-    console.warn('[telegram] TELEGRAM_LONG_POLLING is true but TELEGRAM_BOT_TOKEN is missing; skipping poller');
-    return;
+    logError(
+      'TELEGRAM_BOT_TOKEN is not set. Set TELEGRAM_LONG_POLLING=true and TELEGRAM_BOT_TOKEN in Railway variables to enable.',
+    );
   }
 
-  // eslint-disable-next-line no-console
-  console.log('[telegram] Long polling enabled (getUpdates); clearing webhook if any');
+  logInfo('Long polling enabled (getUpdates); clearing webhook if any');
   void runTelegramPollLoop();
-}
-
-async function runTelegramPollLoop(): Promise<void> {
-  try {
-    await deleteTelegramWebhook();
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[telegram] deleteWebhook failed; long polling may not receive messages', err);
-  }
-
-  let offset = 0;
-  for (;;) {
-    try {
-      const updates = await getTelegramUpdates({
-        offset,
-        timeoutSeconds: pollTimeoutSeconds(),
-      });
-
-      for (const u of updates) {
-        await processTelegramUpdate(u);
-      }
-
-      if (updates.length > 0) {
-        offset = updates[updates.length - 1].update_id + 1;
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const oneLine = msg.replace(/\s+/g, ' ').slice(0, 220);
-      // eslint-disable-next-line no-console
-      console.error('[telegram] long poll error:', oneLine);
-      await new Promise((r) => setTimeout(r, ERROR_BACKOFF_MS));
-    }
-  }
 }
 
 export async function processTelegramUpdate(update: TelegramUpdate): Promise<void> {
@@ -112,4 +64,72 @@ export async function processTelegramUpdate(update: TelegramUpdate): Promise<voi
     chatId: outgoing.telegramChatId,
     text: outgoing.message,
   });
+}
+
+// --- internals ---
+
+const ERROR_BACKOFF_MS = 5000;
+const LOG_PREFIX = '[telegram]';
+
+/** Long-poll `timeout` in seconds (0–50; default 25). Env: TELEGRAM_LONG_POLL_TIMEOUT. */
+function pollTimeoutSeconds(): number {
+  const raw = process.env.TELEGRAM_LONG_POLL_TIMEOUT?.trim();
+  if (!raw) return 25;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 25;
+  return Math.min(50, Math.max(0, n));
+}
+
+function longPollingEnabled(): boolean {
+  return process.env.TELEGRAM_LONG_POLLING?.trim().toLowerCase() === 'true';
+}
+
+function logInfo(message: string): void {
+  console.log(`${LOG_PREFIX} ${message}`);
+}
+
+function logWarn(message: string): void {
+  console.warn(`${LOG_PREFIX} ${message}`);
+}
+
+function logError(message: string, err?: unknown): void {
+  if (err !== undefined) {
+    console.error(`${LOG_PREFIX} ${message}`, err);
+  } else {
+    console.error(`${LOG_PREFIX} ${message}`);
+  }
+}
+
+function formatErrorOneLine(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.replace(/\s+/g, ' ').slice(0, 220);
+}
+
+async function runTelegramPollLoop(): Promise<void> {
+  try {
+    await deleteTelegramWebhook();
+  } catch (err) {
+    logError('deleteWebhook failed; long polling may not receive messages', err);
+  }
+
+  let offset = 0;
+  for (;;) {
+    try {
+      const updates = await getTelegramUpdates({
+        offset,
+        timeoutSeconds: pollTimeoutSeconds(),
+      });
+
+      for (const u of updates) {
+        await processTelegramUpdate(u);
+      }
+
+      if (updates.length > 0) {
+        offset = updates[updates.length - 1].update_id + 1;
+      }
+    } catch (err) {
+      logError(`long poll error: ${formatErrorOneLine(err)}`);
+      await new Promise((r) => setTimeout(r, ERROR_BACKOFF_MS));
+    }
+  }
 }
