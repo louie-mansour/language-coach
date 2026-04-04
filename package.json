@@ -16,7 +16,8 @@
     "format": "prettier -w .",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "curl-message": "node scripts/curl-message.mjs"
+    "curl-message": "node scripts/curl-message.mjs",
+    "curl-digest": "node scripts/curl-daily-digest.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

@@ -48,7 +48,8 @@ export async function handleIncomingMessage(incomingMessage: IncomingMessage): P
   const hasExtractions =
     Boolean(signUpDetails.nativeLanguage?.trim()) ||
     Boolean(signUpDetails.languageToLearn?.trim()) ||
-    Boolean(signUpDetails.name?.trim());
+    Boolean(signUpDetails.name?.trim()) ||
+    Boolean(signUpDetails.email?.trim());
   if (hasExtractions) {
     await mergeStudentProfileFromExtractions(student.id, signUpDetails);
   }

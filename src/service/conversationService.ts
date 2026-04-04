@@ -6,6 +6,7 @@ import { Intent } from '../model/intent';
 import type { Message, SmsMessage } from '../model/message';
 import type { SignUpDetails, Student } from '../model/student';
 import { studentLanguagesComplete } from '../model/student';
+import { extractFirstEmailFromText } from '../util/extractEmail';
 
 const MAX_PRIOR_CHARS = 400;
 const FALLBACK_REPLY =
@@ -125,12 +126,21 @@ function signUpDetailsForTurn(
     nativeLanguage: null,
     languageToLearn: null,
     name: null,
+    email: null,
   };
   if (intent === Intent.DeleteData) {
     return empty;
   }
+
+  const emailFromMessage = extractFirstEmailFromText(userMessage);
+
+  function withEmail(details: SignUpDetails): SignUpDetails {
+    if (!emailFromMessage) return details;
+    return { ...details, email: emailFromMessage };
+  }
+
   if (studentLanguagesComplete(student)) {
-    return empty;
+    return withEmail(empty);
   }
 
   const out: SignUpDetails = { ...empty };
@@ -145,9 +155,9 @@ function signUpDetailsForTurn(
   }
 
   if (!out.nativeLanguage && !out.languageToLearn) {
-    return empty;
+    return withEmail(empty);
   }
-  return out;
+  return withEmail(out);
 }
 
 /**

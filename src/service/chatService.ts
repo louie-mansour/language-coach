@@ -76,7 +76,7 @@ export async function findRecentChatRowsForStudent(
 }
 
 /**
- * All digest-eligible chat rows for a student whose createdAt falls in [start, end) (typically one UTC calendar day).
+ * All digest-eligible chat rows for a student whose createdAt falls in [start, end) (e.g. rolling last 24 hours).
  */
 export async function findMessagesForStudentInTimeRange(
   studentId: string,

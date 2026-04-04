@@ -6,6 +6,7 @@ export type SignUpDetails = {
   nativeLanguage: string | null;
   languageToLearn: string | null;
   name: string | null;
+  email: string | null;
 };
 
 export function studentLanguagesComplete(

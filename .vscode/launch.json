@@ -1,4 +1,6 @@
 {
+  // up-debug: docker-entrypoint uses tsc + node dist/server.js (not tsx) so breakpoints bind via dist inline source maps.
+  // Attach after you see "Debugger listening" on port 9229.
   "version": "0.2.0",
   "configurations": [
     {
@@ -11,6 +13,20 @@
       "remoteRoot": "/app",
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "sourceMapPathOverrides": {
+        "/app/*": "${workspaceFolder}/*",
+        "file:///app/*": "${workspaceFolder}/*"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch server (tsx, no Docker)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "src/server.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
     }
   ]

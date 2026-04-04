@@ -44,10 +44,12 @@ export async function mergeStudentProfileFromExtractions(
   studentId: string,
   details: SignUpDetails,
 ): Promise<Student> {
-  const data: { nativeLanguage?: string; languageToLearn?: string; name?: string } = {};
+  const data: { nativeLanguage?: string; languageToLearn?: string; name?: string; email?: string } =
+    {};
   if (details.nativeLanguage?.trim()) data.nativeLanguage = details.nativeLanguage.trim();
   if (details.languageToLearn?.trim()) data.languageToLearn = details.languageToLearn.trim();
   if (details.name?.trim()) data.name = details.name.trim();
+  if (details.email?.trim()) data.email = details.email.trim();
   if (Object.keys(data).length === 0) {
     return prisma.student.findUniqueOrThrow({ where: { id: studentId } });
   }

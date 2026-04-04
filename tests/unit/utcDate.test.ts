@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { utcDateString, utcDayBounds, utcYesterdayDateString } from '../../src/util/utcDate';
+import {
+  utcDateString,
+  utcDayBounds,
+  utcLast24HoursBounds,
+  utcYesterdayDateString,
+} from '../../src/util/utcDate';
 
 describe('utcDate', () => {
   it('utcDayBounds covers one UTC calendar day', () => {
@@ -16,5 +21,13 @@ describe('utcDate', () => {
 
   it('utcDateString formats YYYY-MM-DD', () => {
     expect(utcDateString(new Date('2026-01-05T23:59:59.999Z'))).toBe('2026-01-05');
+  });
+
+  it('utcLast24HoursBounds is 24h ending at now', () => {
+    const now = new Date('2026-04-03T15:30:00.000Z');
+    const { start, end } = utcLast24HoursBounds(now);
+    expect(end.toISOString()).toBe('2026-04-03T15:30:00.000Z');
+    expect(start.toISOString()).toBe('2026-04-02T15:30:00.000Z');
+    expect(end.getTime() - start.getTime()).toBe(24 * 60 * 60 * 1000);
   });
 });

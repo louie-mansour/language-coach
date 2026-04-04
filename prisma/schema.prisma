@@ -20,10 +20,29 @@ model Student {
   nativeLanguage   String?
   languageToLearn  String?
   /// If set, end-of-day digest can be emailed (set manually or via a future API).
-  email            String?
-  createdAt        DateTime  @default(now())
+  email              String?
+  /// When the last email digest was sent; used to avoid back-to-back digests without a new student message.
+  lastDigestSentAt   DateTime?
+  createdAt          DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  messages         Message[]
+  messages           Message[]
+  digestSends        DigestSend[]
+}
+
+/// One row per email digest actually sent (analytics: strengths/improvements trends, product direction).
+model DigestSend {
+  id            String   @id @default(uuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sentAt        DateTime @default(now())
+  /// Transcript window [windowStart, windowEnd) used for this digest (typically last 24h).
+  windowStart   DateTime
+  windowEnd     DateTime
+  strengths     String[]
+  improvements  String[]
+
+  @@index([studentId])
+  @@index([sentAt])
 }
 
 model Message {

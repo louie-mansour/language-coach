@@ -45,21 +45,6 @@ describe('HTTP → handler → Prisma (Gemini mocked with nock)', () => {
     }
   });
 
-  it('POST /internal/daily-digest returns 400 for bad date', async () => {
-    const secret = 'test-cron-secret-for-digest';
-    const prev = process.env.CRON_SECRET;
-    process.env.CRON_SECRET = secret;
-    try {
-      await request(app)
-        .post('/internal/daily-digest')
-        .set('x-cron-secret', secret)
-        .send({ date: 'not-a-date' })
-        .expect(400);
-    } finally {
-      process.env.CRON_SECRET = prev;
-    }
-  });
-
   it('GET /health is public (no API key; platform health probes)', async () => {
     await request(app).get('/health').expect(200).expect({ ok: true });
   });
@@ -156,6 +141,30 @@ describe('HTTP → handler → Prisma (Gemini mocked with nock)', () => {
       orderBy: { createdAt: 'asc' },
     });
     expect(rows).toHaveLength(4);
+  });
+
+  it('POST /message stores email when the user sends an address in the text', async () => {
+    const phoneNumber = '+15550000010';
+
+    mockGeminiGenerateContent({
+      intent: 'chat',
+      intentConfidence: 0.9,
+      replyToUser: 'Got it.',
+    });
+
+    await request(app)
+      .post('/message')
+      .set('x-api-key', API_KEY)
+      .send({
+        channel: 'sms',
+        phoneNumber,
+        message: 'You can reach me at Learner@Example.com for the digest',
+      })
+      .expect(200);
+
+    const student = await prisma.student.findUnique({ where: { phoneNumber } });
+    expect(student).not.toBeNull();
+    expect(student!.email).toBe('learner@example.com');
   });
 
   it('POST /message with deleteData intent deletes student and messages', async () => {
